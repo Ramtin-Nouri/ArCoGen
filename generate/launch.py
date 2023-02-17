@@ -8,8 +8,8 @@ OUT_DIR = 'Out'
 NAME = "ARC-GEN"
 CAM_MOTION = False
 MAX_MOTIONS = 1
-NUM_IMAGES = 20 #how many videos to generate
-NUM_FRAMES = 100 #how many frames per video
+NUM_IMAGES = 5500 #how many videos to generate
+NUM_FRAMES = 90 #how many frames per video
 FPS = 10
 
 
