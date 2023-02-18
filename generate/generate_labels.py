@@ -4,6 +4,11 @@ import os
 SCENES_FOLDER = 'generate/Out/scenes'
 LABELS_FOLDER = 'generate/Out/'
 
+DICTIONARY = ['EOS', '_containing', '_contain', '_pick_place', '_rotate', '_slide',
+              'metal', 'rubber',
+              'yellow', 'cyan', 'gold', 'brown', 'red', 'gray', 'purple', 'blue', 'green',
+              'sphere', 'cube', 'cylinder', 'cone', 'spl']
+
 def get_video(scene):
     """Get the image file name from the scene."""
     s = json.load(open(f'generate/Out/scenes/{scene}'))
@@ -58,43 +63,59 @@ def detect_overlap(moves):
     return False, None, None
 
 def get_objects(scene):
+    """Get the objects for a scene."""
     s = json.load(open(f'generate/Out/scenes/{scene}'))
     objects =  s['objects']
     cleaned = {} # key is object name, value is color, material, shape
     for obj in objects:
-        cleaned[obj['instance']] = ",%s,%s,%s,"%(obj['color'], obj["material"], obj['shape'])
+        cleaned[obj['instance']] = (obj['color'], obj["material"], obj['shape'])
     return cleaned
 
 def instance_to_label(scene, instance):
+    """Converts the instance to the object's label.
+    
+    Retrieves the object from the scene given the instance name.
+    Returns a list of the form [color, material, shape]
+    """
     objects = get_objects(scene)
     return objects[instance]
 
+def get_dictionary_label(label):
+    """Converts the label to the index in the dictionary."""
+    dictionary_label = []
+    for i in range(len(label)):
+        dictionary_label.append(DICTIONARY.index(label[i]))
+    return dictionary_label
+
 def get_label(scene):
+    """Get the label for a scene."""
     moves = get_moves(scene)
     is_overlapping, main, sub = detect_overlap(moves)
     # For each move: Action, Color, Material, Shape
     if not is_overlapping:
-        label = ""
+        label = []
         for i in range(len(moves)):
-            label += moves[i][1]
-            label += instance_to_label(scene, moves[i][0])
-        return label[:-1] # remove last comma
-
+            label.append(moves[i][1])
+            label.extend(instance_to_label(scene, moves[i][0]))
     else:
         if sub < main:
             # switch elements in list
             moves[main], moves[sub] = moves[sub], moves[main]
             main, sub = sub, main
-        label = ""
+        label = []
         for i in range(len(moves)):
             if i == sub:
-                label += 'containing'
+                label.append('_containing')
             else:
-                label+= moves[i][1]
-            label+= instance_to_label(scene, moves[i][0])
-        return label[:-1] # remove last comma
+                label.append(moves[i][1])
+            label.extend(instance_to_label(scene, moves[i][0]))
+        
+    dict_label = get_dictionary_label(label)
+    dict_label.append(DICTIONARY.index('EOS')) # always end with EOS
+    return dict_label
 
 def get_all_labels():
+    """Get all labels for all scenes."""
     scenes = os.listdir(SCENES_FOLDER)
     scenes.sort()
     
@@ -120,40 +141,47 @@ def split_train_val_test(labels):
     - pick_place gray rubber cone
     """
     def is_test_label(label):
-        shape_color = label[1] == 'gray' and label[3] == 'cube'
-        shape_material = label[2] == 'metal' and label[3] == 'sphere'
-        action_color = label[0] == '_slide' and label[1] == 'red'
-        action_material = label[0] == '_rotate' and label[2] == 'metal'
-        color_material = label[1] == 'blue' and label[2] == 'metal'
-        action_color_material_shape = label==['_pick_place', 'gray', 'rubber', 'cone']
-        return shape_color or shape_material or action_color or action_material or color_material# or action_color_material_shape
+        shape_color = label[1] == DICTIONARY.index('gray') and label[3] == DICTIONARY.index('cube')
+        shape_material = label[2] == DICTIONARY.index('metal') and label[3] == DICTIONARY.index('sphere')
+        action_color = label[0] == DICTIONARY.index('_slide') and label[1] == DICTIONARY.index('red')
+        action_material = label[0] == DICTIONARY.index('_rotate') and label[2] == DICTIONARY.index('metal')
+        color_material = label[1] == DICTIONARY.index('blue') and label[2] == DICTIONARY.index('metal')
+        return shape_color or shape_material or action_color or action_material or color_material
 
     test = []
+    not_test = []
     val = []
     train = []
     for i in range(len(labels)):
-        label = labels[i][1].split(',') # every 4 elements is a move
+        label = labels[i][1] # 0 is video, 1 is label
 
-        assert len(label) % 4 == 0
-        for i in range(0, len(label), 4):
-            if is_test_label(label[i:i+4]):
-                test.append(labels[i])
+        assert len(label) % 4 == 1 # 4 elements per move + 1 for EOS
+        is_test = False
+        for j in range(0, len(label) - 1, 4):
+            if is_test_label(label[j:j+4]):
+                is_test = True
                 break
+
+        if is_test:
+            print('test', labels[i])
+            test.append(labels[i])
         else:
-            train.append(labels[i])
+            not_test.append(labels[i])
 
     # Split train into val and train
-    for i in range(len(train)):
-        if i % 5 == 0:
-            val.append(train[i])
+    for i in range(len(not_test)):
+        if i % 3 == 0:
+            val.append(not_test[i])
         else:
-            train.append(train[i])
+            train.append(not_test[i])
     return train, val, test
 
 def format_prettier(labels):
     pretty = ""
     for i in range(len(labels)):
-        pretty += labels[i][0] + ':' + labels[i][1] + '\n'
+        pretty += labels[i][0] + ':' # video
+        pretty += str(labels[i][1]).replace(' ','')[1:-1] + '\n' # label but without the brackets and spaces
+        
     return pretty
 
 if __name__ == '__main__':
