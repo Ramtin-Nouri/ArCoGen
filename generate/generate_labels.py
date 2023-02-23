@@ -137,15 +137,14 @@ def split_train_val_test(labels):
     - metal sphere
     - slide red
     - rotate metal
-    - blue metal
-    - pick_place gray rubber cone
+    - blue rubber
     """
     def is_test_label(label):
         shape_color = label[1] == DICTIONARY.index('gray') and label[3] == DICTIONARY.index('cube')
         shape_material = label[2] == DICTIONARY.index('metal') and label[3] == DICTIONARY.index('sphere')
         action_color = label[0] == DICTIONARY.index('_slide') and label[1] == DICTIONARY.index('red')
         action_material = label[0] == DICTIONARY.index('_rotate') and label[2] == DICTIONARY.index('metal')
-        color_material = label[1] == DICTIONARY.index('blue') and label[2] == DICTIONARY.index('metal')
+        color_material = label[1] == DICTIONARY.index('blue') and label[2] == DICTIONARY.index('rubber')
         return shape_color or shape_material or action_color or action_material or color_material
 
     test = []
