@@ -1,4 +1,7 @@
-# CATER: A diagnostic dataset for Compositional Actions and TEmporal Reasoning
+# Compositional Generalization variation of CATER. Very WIP!
+
+---
+# ~~CATER: A diagnostic dataset for Compositional Actions and TEmporal Reasoning~~
 
 <p float="left">
     <img src="https://rohitgirdhar.github.io/CATER/assets/teaser/CLEVR_new_000105.gif" alt="eg1" width="200"/>
