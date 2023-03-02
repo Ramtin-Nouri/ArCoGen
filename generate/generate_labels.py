@@ -149,8 +149,6 @@ def split_train_val_test(labels):
 
     test = []
     not_test = []
-    val = []
-    train = []
     for i in range(len(labels)):
         label = labels[i][1] # 0 is video, 1 is label
 
@@ -167,13 +165,24 @@ def split_train_val_test(labels):
         else:
             not_test.append(labels[i])
 
+    # Split test into val and test
+    test_val = []
+    test_ = []
+    for i in range(len(test)):
+        if i % 4 == 0:
+            test_val.append(test[i])
+        else:
+            test_.append(test[i])
+
     # Split train into val and train
+    val = []
+    train = []
     for i in range(len(not_test)):
         if i % 3 == 0:
             val.append(not_test[i])
         else:
             train.append(not_test[i])
-    return train, val, test
+    return train, val, test_, test_val
 
 def format_prettier(labels):
     pretty = ""
@@ -185,17 +194,20 @@ def format_prettier(labels):
 
 if __name__ == '__main__':
     labels = get_all_labels()
-    train, val, test = split_train_val_test(labels)
-    sum_ = len(train) + len(val) + len(test)
+    train, val, test_, test_val = split_train_val_test(labels)
+    sum_ = len(train) + len(val) + len(test_) + len(test_val)
     print(F'Train: {len(train)}/{sum_} = {len(train)/sum_}')
     print(F'Val: {len(val)}/{sum_} = {len(val)/sum_}')
-    print(F'Test: {len(test)}/{sum_} = {len(test)/sum_}')
+    print(F'Test: {len(test_)}/{sum_} = {len(test_)/sum_}')
+    print(F'Test val: {len(test_val)}/{sum_} = {len(test_val)/sum_}')
     with open(f'{LABELS_FOLDER}train.txt', 'w') as f:
         f.write(format_prettier(train))
     with open(f'{LABELS_FOLDER}val.txt', 'w') as f:
         f.write(format_prettier(val))
     with open(f'{LABELS_FOLDER}test.txt', 'w') as f:
-        f.write(format_prettier(test))
+        f.write(format_prettier(test_))
+    with open(f'{LABELS_FOLDER}test_val.txt', 'w') as f:
+        f.write(format_prettier(test_val))
     print('Done')
     
 
