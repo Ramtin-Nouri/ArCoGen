@@ -10,7 +10,7 @@ import logging
 PICK_HEIGHT = 2
 MAX_TRIALS = 100  # Max number of times to try to find a good op that works
 MOVEMENT_MIN = 20
-MOVEMENT_MAX = 30
+MOVEMENT_MAX = 25
 # Upper bound on the number of objects that move in a given segment. This
 # can be set using the argparse. Lower numbers mean sparser videos.
 MAX_MOTIONS = 999999
@@ -56,6 +56,8 @@ def random_objects_movements(
             objects, cur_frame, all_obj_locations, min_dist, total_frames,
             record, max_motions=max_motions)
         cur_frame = end_frame + 1
+        # Round to next 30 frames
+        cur_frame = math.ceil(cur_frame / 30) * 30
         logging.debug('objects now: {}'.format(
             [[e[0]['instance'] for e in el] for el in objects]))
         assert_top_obj_is_cone(objects)
@@ -85,7 +87,7 @@ def add_movements_multiObj_try(objects, start_frame, all_obj_locations,
         assert i1 != i2, \
             'This should never happen, random.sample is without replacement'
         frames_this_move = random.randint(MOVEMENT_MIN, MOVEMENT_MAX)
-        new_start_frame = start_frame + random.randint(0, 10)
+        new_start_frame = start_frame + random.randint(0, 5)
         new_end_frame = min(new_start_frame + frames_this_move, total_frames)
         if not _can_contain(objects[i1], objects[i2],
                             # other objects, to check collisions
@@ -205,7 +207,7 @@ def add_movements_singleObj(objects, start_frame, all_obj_locations, min_dist,
     splits = []
     for obid in obj_order:
         frames_this_move = random.randint(MOVEMENT_MIN, MOVEMENT_MAX)
-        new_start_frame = start_frame + random.randint(0, 10)
+        new_start_frame = start_frame + random.randint(0, 5)
         new_end_frame = min(new_start_frame + frames_this_move, total_frames)
         last_frame_added = max(new_end_frame, last_frame_added)
         if new_end_frame <= new_start_frame:
