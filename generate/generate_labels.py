@@ -1,5 +1,7 @@
 import json
 import os
+import subprocess
+import re
 
 SCENES_FOLDER = 'generate/Out/scenes'
 LABELS_FOLDER = 'generate/Out/'
@@ -12,7 +14,42 @@ DICTIONARY = ['EOS', '_containing', '_contain', '_pick_place', '_rotate', '_slid
 def get_video(scene):
     """Get the image file name from the scene."""
     s = json.load(open(f'generate/Out/scenes/{scene}'))
-    return s['image_filename']
+    video = s['image_filename']
+    if check_avi_broken(f'generate/Out/images/{video}'):
+        print(f'Video {video} is broken')
+        return None
+    return video
+
+def check_avi_broken(fpath):
+    """ Check if the AVI file is broken, i.e. does not have index.
+    This indicates a video that was not fully rendered and must be ignored for the
+    final training/testing. 
+
+    Args:
+        fpath: Path to the video file.
+    Returns:
+        True if the video is broken, False otherwise.
+    """
+    if os.path.exists(fpath + '.lock'):
+        # For any properly rendered video, the lock file must be deleted.
+        return True
+    # TODO(rgirdhar): Also might want to check for empty, overly small files?
+    # So far the AVI without index is able to catch most bad/partially rendered
+    # files.
+
+    if not os.path.exists(fpath):
+        # If the file does not exist, it is broken.
+        return True
+    try:
+        output = subprocess.check_output(
+            'ffmpeg -i {}'.format(fpath), shell=True, stderr=subprocess.STDOUT,
+            universal_newlines=True)
+    except subprocess.CalledProcessError as exc:
+        output = exc.output
+    prog = re.compile('.*AVI without index.*', flags=re.DOTALL)
+    if prog.match(output):
+        return True
+    return False
 
 def get_moves(scene):
     """ Get the moves for a scene.
@@ -121,8 +158,10 @@ def get_all_labels():
     
     labels = []
     for i in range(len(scenes)):
-        label = get_label(scenes[i])
         video = get_video(scenes[i])
+        if video is None:
+            continue
+        label = get_label(scenes[i])
         print(scenes[i], video, label)
         labels.append((video,label))
     return labels
@@ -133,19 +172,17 @@ def split_train_val_test(labels):
     The rest is training.
 
     The test set has all occurences of:
-    - gray cube
-    - metal sphere
-    - slide red
-    - rotate metal
-    - blue rubber
+    - rotate blue rubber
+    - slide red cube
+    - pick_place metal sphere
+    - green rubber cone
     """
     def is_test_label(label):
-        shape_color = label[1] == DICTIONARY.index('gray') and label[3] == DICTIONARY.index('cube')
-        shape_material = label[2] == DICTIONARY.index('metal') and label[3] == DICTIONARY.index('sphere')
-        action_color = label[0] == DICTIONARY.index('_slide') and label[1] == DICTIONARY.index('red')
-        action_material = label[0] == DICTIONARY.index('_rotate') and label[2] == DICTIONARY.index('metal')
-        color_material = label[1] == DICTIONARY.index('blue') and label[2] == DICTIONARY.index('rubber')
-        return shape_color or shape_material or action_color or action_material or color_material
+        action_color_material = label[0] == DICTIONARY.index('_rotate') and label[1] == DICTIONARY.index('blue') and label[2] == DICTIONARY.index('rubber')
+        action_color_shape = label[0] == DICTIONARY.index('_slide') and label[1] == DICTIONARY.index('red') and label[3] == DICTIONARY.index('cube')
+        action_material_shape = label[0] == DICTIONARY.index('_pick_place') and label[2] == DICTIONARY.index('metal') and label[3] == DICTIONARY.index('sphere')
+        color_material_shape = label[1] == DICTIONARY.index('green') and label[2] == DICTIONARY.index('rubber') and label[3] == DICTIONARY.index('cone')
+        return action_color_material or action_color_shape or action_material_shape or color_material_shape
 
     test = []
     not_test = []
@@ -178,7 +215,7 @@ def split_train_val_test(labels):
     val = []
     train = []
     for i in range(len(not_test)):
-        if i % 3 == 0:
+        if i % 5 == 0:
             val.append(not_test[i])
         else:
             train.append(not_test[i])
