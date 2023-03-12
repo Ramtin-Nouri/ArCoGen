@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import re
+from tqdm import tqdm
 
 SCENES_FOLDER = 'generate/Out/scenes'
 LABELS_FOLDER = 'generate/Out/'
@@ -124,9 +125,29 @@ def get_dictionary_label(label):
         dictionary_label.append(DICTIONARY.index(label[i]))
     return dictionary_label
 
+def check_moves(moves):
+    """Check if every 30 frames there is at least 1 move.
+    Expecting that in each 30 frame interval there is at least 1 move.
+    """
+    if len(moves) == 0:
+        return False
+    for i in range(3):
+        found = False
+        for move in moves:
+            if move[3] >= i*30 and move[4] <= (i+1)*30:
+                found = True
+                break
+        if not found:
+            print(f'No move found in interval {i*30} to {(i+1)*30}, moves: {moves}')
+            return False
+    return True
+    
+
 def get_label(scene):
     """Get the label for a scene."""
     moves = get_moves(scene)
+    if not check_moves(moves):
+        return None
     is_overlapping, main, sub = detect_overlap(moves)
     # For each move: Action, Color, Material, Shape
     if not is_overlapping:
@@ -156,14 +177,22 @@ def get_all_labels():
     scenes = os.listdir(SCENES_FOLDER)
     scenes.sort()
     
+    skipped = 0
     labels = []
-    for i in range(len(scenes)):
+    for i in tqdm(range(len(scenes))):
         video = get_video(scenes[i])
         if video is None:
+            skipped += 1
+            print(f'No video for {scenes[i]}')
             continue
         label = get_label(scenes[i])
-        print(scenes[i], video, label)
+        if label is None:
+            skipped += 1
+            print(f'No label for {scenes[i]}')
+            continue
+        #print(scenes[i], video, label)
         labels.append((video,label))
+    print(f'Skipped {skipped} scenes')
     return labels
 
 def split_train_val_test(labels):
